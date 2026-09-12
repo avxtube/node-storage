@@ -7,8 +7,8 @@ HTTP storage service สำหรับเสิร์ฟ media จาก storag
 - อ่าน provider และตำแหน่งไฟล์จาก `storages`
   - local: `local.basePath`
   - S3: `s3.endpoint`, `region`, `bucket`, `prefix` และ encrypted credentials
-- `/{mediaSlug}.mp4` เสิร์ฟ video พร้อม HTTP Range
-- `/{mediaSlug}.json` สร้าง manifest สำหรับ nginx-vod-module จาก `media.key`
+- `/{mediaSlug}.mp4` เสิร์ฟ video หรือ audio source พร้อม HTTP Range
+- `/{mediaSlug}.json` สร้าง manifest สำหรับ nginx-vod-module จาก `media.key`; S3 จะอ่านผ่าน local authenticated Range proxy ของ node-storage เพื่อไม่พึ่ง public origin ตอน cold start
 - `/{fileSlug}/{path}` เสิร์ฟ asset ภายใต้ `<fileId>/<path>`
 - `/api/health` แสดงสถานะ `health.checkedAt`, capacity และ disk usage
 - อัปเดต `storages.status`, `health` และ `capacity` ทุกหนึ่งนาที โดยไม่เขียนทับ `enabled`

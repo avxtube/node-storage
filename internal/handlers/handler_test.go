@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"storage-node/internal/config"
 	"storage-node/internal/core/enums"
 	"storage-node/internal/db/models"
 )
@@ -60,15 +61,17 @@ func TestBuildVODClipSelectsLocalFile(t *testing.T) {
 	}
 }
 
-func TestBuildVODClipSelectsS3Origin(t *testing.T) {
-	origin := "origin.example"
-	storageConfig := &models.Storage{Provider: enums.StorageTypeS3, OriginURL: &origin, S3: &models.StorageS3Config{}}
-	media := &models.Media{Key: "file-id/audio_1.m4a"}
+func TestBuildVODClipUsesLocalAuthenticatedS3Proxy(t *testing.T) {
+	previousPort := config.AppConfig.Port
+	config.AppConfig.Port = "9999"
+	defer func() { config.AppConfig.Port = previousPort }()
+	storageConfig := &models.Storage{Provider: enums.StorageTypeS3, S3: &models.StorageS3Config{}}
+	media := &models.Media{Slug: "audio-media", Key: "file-id/audio_1.m4a"}
 	got, err := buildVODClip(storageConfig, media)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SourceType != "http" || got.Path != "/https/origin.example/file-id/audio_1.m4a" {
+	if got.SourceType != "http" || got.Path != "/http/127.0.0.1:9999/audio-media.mp4" {
 		t.Fatalf("S3 clip = %#v", got)
 	}
 }

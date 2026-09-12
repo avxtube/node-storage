@@ -10,6 +10,7 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -20,6 +21,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 )
+
+var mediaSlugPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
 type Handler struct {
 	StorageID string
@@ -145,22 +148,21 @@ func buildVODClip(storageConfig *models.Storage, media *models.Media) (VODClip, 
 		filePath, err := buildLocalMediaPath(storageConfig.Local.BasePath, media)
 		return VODClip{Type: "source", SourceType: "file", Path: filePath}, err
 	case enums.StorageTypeS3:
-		originURL := storageConfig.OriginURL
-		if originURL == nil || strings.TrimSpace(*originURL) == "" {
-			originURL = storageConfig.PublicURL
+		if !mediaSlugPattern.MatchString(media.Slug) {
+			return VODClip{}, fmt.Errorf("media slug is invalid")
 		}
-		if originURL == nil || strings.TrimSpace(*originURL) == "" {
-			return VODClip{}, fmt.Errorf("S3 storage has no originUrl or publicUrl")
+		port := strings.TrimSpace(config.AppConfig.Port)
+		if port == "" {
+			port = "8888"
 		}
-		remotePath, err := buildRemoteVODPath(*originURL, storageConfig, media)
-		return VODClip{Type: "source", SourceType: "http", Path: remotePath}, err
+		return VODClip{Type: "source", SourceType: "http", Path: "/http/127.0.0.1:" + port + "/" + url.PathEscape(media.Slug) + ".mp4"}, nil
 	default:
 		return VODClip{}, fmt.Errorf("unsupported storage provider %q", storageConfig.Provider)
 	}
 }
 
 func (h *Handler) ServeVideo(w http.ResponseWriter, r *http.Request, slug string) {
-	media, err := h.findVideoMedia(r, slug)
+	media, err := h.findVODMedia(r, slug)
 	if err != nil {
 		HandleNotFound(w, r)
 		return
