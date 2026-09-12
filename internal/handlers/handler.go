@@ -10,7 +10,6 @@ import (
 	"os"
 	pathpkg "path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -21,8 +20,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 )
-
-var mediaSlugPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 
 type Handler struct {
 	StorageID string
@@ -113,7 +110,7 @@ func buildLocalMediaPath(basePath string, media *models.Media) (string, error) {
 	return storage.SafeJoin(basePath, filepath.FromSlash(key))
 }
 
-func buildRemoteVODPath(originURL string, storageConfig *models.Storage, media *models.Media) (string, error) {
+func buildRemoteVODPath(originURL string, media *models.Media) (string, error) {
 	originURL = strings.TrimSpace(originURL)
 	if originURL == "" {
 		return "", fmt.Errorf("origin URL is empty")
@@ -129,7 +126,6 @@ func buildRemoteVODPath(originURL string, storageConfig *models.Storage, media *
 	if err != nil {
 		return "", err
 	}
-	key = storage.PhysicalObjectKey(storageConfig, key)
 	parts := []string{"", origin.Scheme, origin.Host}
 	for _, segment := range strings.Split(strings.Trim(origin.Path, "/")+"/"+key, "/") {
 		if segment != "" {
@@ -148,14 +144,11 @@ func buildVODClip(storageConfig *models.Storage, media *models.Media) (VODClip, 
 		filePath, err := buildLocalMediaPath(storageConfig.Local.BasePath, media)
 		return VODClip{Type: "source", SourceType: "file", Path: filePath}, err
 	case enums.StorageTypeS3:
-		if !mediaSlugPattern.MatchString(media.Slug) {
-			return VODClip{}, fmt.Errorf("media slug is invalid")
+		if storageConfig.OriginURL == nil || strings.TrimSpace(*storageConfig.OriginURL) == "" {
+			return VODClip{}, fmt.Errorf("S3 storage has no originUrl")
 		}
-		port := strings.TrimSpace(config.AppConfig.Port)
-		if port == "" {
-			port = "8888"
-		}
-		return VODClip{Type: "source", SourceType: "http", Path: "/http/127.0.0.1:" + port + "/" + url.PathEscape(media.Slug) + ".mp4"}, nil
+		remotePath, err := buildRemoteVODPath(*storageConfig.OriginURL, media)
+		return VODClip{Type: "source", SourceType: "http", Path: remotePath}, err
 	default:
 		return VODClip{}, fmt.Errorf("unsupported storage provider %q", storageConfig.Provider)
 	}

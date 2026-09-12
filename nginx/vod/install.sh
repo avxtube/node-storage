@@ -285,15 +285,12 @@ http {
 
       proxy_set_header Host \$proxy_host;
       proxy_set_header Connection "";
-      proxy_set_header Range \$http_range;
-      proxy_set_header If-Range \$http_if_range;
 
       proxy_ssl_server_name on;
       proxy_ssl_name \$proxy_host;
 
       proxy_connect_timeout 15s;
-      proxy_read_timeout 300s;
-      proxy_buffering off;
+      proxy_read_timeout 90s;
     }
 
     # HLS streaming
